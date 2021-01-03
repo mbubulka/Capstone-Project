@@ -1,0 +1,351 @@
+---
+title: "CAPSTONE FINAL"
+author: "Michael Bubulka"
+date: "1/2/2021"
+output: word_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## R Markdown
+
+This project was my attempt to learn more about various models.  I explored a smaller dataset than the MovieLens which allowed me to use the caret model to try various models.   The first step was to setup the required packages. 
+```{r problem set up}
+
+######  install all required packages for this project
+install.packages("caret")
+library(caret)
+if(!require(tidyverse)) install.packages("tidyverse", repos = "http://cran.us.r-project.org")
+if(!require(caret)) install.packages("caret", repos = "http://cran.us.r-project.org")
+if(!require(data.table)) install.packages("data.table", repos = "http://cran.us.r-project.org")
+
+library(tidyverse)
+library(caret)
+library(data.table)
+
+# Adding Additional Packages 
+library (broom)
+library(lubridate)
+library(tibble)
+install.packages("randomForest")
+library(randomForest)
+install.packages("matrixStats")
+library(matrixStats)
+library(purrr)
+install.packages("AppliedPredictiveModeling")
+library(AppliedPredictiveModeling)
+install.packages("e1071")
+library(e1071)
+library(readr)
+library(readxl)
+library(ggplot2)
+install.packages("caretEnsemble")
+library(caretEnsemble)
+install.packages("RANN")
+install.packages("arm")
+library(arm)
+install.packages("penalized")
+library(penalized)
+install.packages("pls")
+library(pls)
+install.packages("quantregForest")
+library(quantregForest)
+library(dplyr)
+```
+I chose a dataset from Kaggle which was a csv file.  I converted it to an excel file and loaded it into Rstudio () Referennce:  kaggle datasets download -d sootersaalu/amazon-top-50-bestselling-books-2009-2019)
+
+I chose a smaller dataset that would be easier to run.  This is a look at Amazons top 50 best selling books from 2009 to 2019. It maybe necessary to download the excel file which will be with the uploads. I also adapted the excel file to remove the Name column, it causes the models to crash or run slowly.    I will include a copy of the excel file with the attachments I upload.  
+
+```{r importing the data from kaggle}
+
+##Data was downloaded as a CSV and converted into excel file.   Excel  file will be attached separately. 
+dataset <- read_xlsx("dataset_1.xlsx")
+ 
+
+```
+
+I need to clean the data to make it useful for the various models.  Part of that was converting the Genre from a character to factor based on two categories of Fiction and Non Fiction.   Also I converted Author from character to Factor because I figured various user ratings could be influence by the author.   I then set up a training set and test set. 
+
+
+```{r cleaning the data}
+### Cleaning the data and creating the trainset and test set.  
+dataset_tidy <- as.data.frame(dataset)
+dataset_tidy$Genre <- as.factor(dataset_tidy$Genre)
+dataset_tidy$Author <- as.factor(dataset_tidy$Author)
+set.seed(1, sample.kind ="Rounding")
+y <- dataset_tidy$`User Rating`
+
+test_index <- createDataPartition(y, times = 1, p = 0.7, list = FALSE)
+
+train_set <- dataset_tidy%>% slice(test_index)
+test_set <- dataset_tidy %>% slice(-test_index)
+
+
+```
+
+
+
+I explored the data to see which variables might be important.  The preProcess function used as a stand alone was an interesting method to explore the data. The range of the User Rating goes from 3.3 to 4.9 with an average of 4.618. I will use other preprocessing methods to explore the dataset.  Here is with it set to scale, which divides values by standard deviation. 
+```{r}
+##Sumarize the data with Scale
+summary(dataset_tidy[,1:6])
+#### calculate the pre-process parameters from the dataset
+preprocessParams <- preProcess(dataset_tidy[,1:6], method=c("scale"))
+preprocessParams
+```
+
+
+```{r exploring the data preproc functions}
+##Sumarize the data with Center and Scale
+summary(dataset_tidy[,1:6])
+#### calculate the pre-process parameters from the dataset
+preprocessParams_1 <- preProcess(dataset_tidy[,1:6], method=c("scale","center"))
+preprocessParams_1
+
+```
+
+```{r, a look at the training and test data}
+## Viewing the training and test dataset
+str(test_set)
+head(test_set)
+str(train_set)
+head(train_set)
+
+```
+
+```{r average}
+## Looking at the average user
+avg_user_rating <-  mean(train_set$`User Rating`)
+avg_user_rating
+```
+
+This should match the preprocessing values and it does.  
+
+
+
+
+
+Step 1 was to set up a linear regression to see what impacts of the different variables might be.  I did not use caret for this portion but will use it later.  
+
+
+```{r LM w/o caret}
+## LM model without using caret
+fit_lm <- lm(train_set$`User Rating` ~ Reviews + Year +Price + Genre, data = train_set)
+fit_lm$coeff
+
+y_hat <- predict(fit_lm, test_set)
+
+rmse_lm_wo <- RMSE(y_hat, test_set$`User Rating`)
+rmse_lm_wo
+
+```
+
+The output with all variables( # of Reviews, Year, Price, Genre) was 0.2082.  Next I will remove Genre to see if it impacts the predictions.  
+
+
+
+```{r LM w/o caret various variables}
+## a look a LM with out caret and ingoring genre
+fit_lm_genre <- lm(`User Rating` ~ Reviews + Year +Price , data = train_set)
+fit_lm_genre$coeff
+y_hat_genre <- predict(fit_lm_genre, test_set)
+
+rmse_lm_wo_genre <- RMSE(y_hat_genre, test_set$`User Rating`)
+rmse_lm_wo_genre
+```
+
+
+
+Next I will remove Price and Genre to see what impacts those variables had.  
+
+
+```{r LM REVIEWS and YEAR Only}
+### A look at Reviews and Year only on a LM model
+fit_lm_genre_price <- lm(`User Rating` ~ Reviews + Year  , data = train_set)
+fit_lm_genre_price$coeff
+y_hat_genre_price <- predict(fit_lm_genre_price, test_set)
+
+rmse_lm_wo_genre_price <- RMSE(y_hat_genre_price, test_set$`User Rating`)
+rmse_lm_wo_genre_price
+```
+
+
+```
+
+
+Last I look at just User Rating compared with the number of Reviews.  
+
+
+```
+
+```{r REVIEWS only}
+## LM model of Reviews only
+fit_lm_genre_price_year <- lm(`User Rating` ~ Reviews   , data = train_set)
+fit_lm_genre_price_year$coeff
+y_hat_genre_price_year <- predict(fit_lm_genre_price_year, test_set)
+
+rmse_lm_wo_genre_price_year <- RMSE(y_hat_genre_price_year, test_set$`User Rating`)
+rmse_lm_wo_genre_price_year
+
+```
+
+
+```
+
+
+To see all the results.  I put them in the table below.  
+
+```
+
+
+
+
+```{r results of LM models}
+## results of LM models
+results_lm_wo_caret <- data.frame(Method =c( "Linear Regression with Reviews, Year, Price, Genre", "Linear Regression with Reviews, Year, Price", "Linear Regression with Reviews, Year","Linear Regression with Reviews Only"), RMSE =c(rmse_lm_wo, rmse_lm_wo_genre,rmse_lm_wo_genre_price, rmse_lm_wo_genre_price_year))
+results_lm_wo_caret
+```
+The more variables you use in the model the less your RMSE is but the range is 0.2218 to 0.2082.   I was not able to use the Authors variable in the LM model as it created an error.  Next I will compare these model runs with similar set up but using caret.  I will explore other models beyond Linear Regression later.  
+
+```{r LM w all variables}
+### Using Caret to build the LM models
+### Genre, year, price, reviews
+set.seed(1, sample.kind = "Rounding")
+train_lm <- train(`User Rating` ~ Reviews + Year+ Price + Genre , method = "lm", data = train_set)
+y_hat_lm <- predict(train_lm, test_set, type ="raw")
+rmse_lm <- RMSE(y_hat_lm, test_set$`User Rating`)
+rmse_lm
+
+```
+
+
+```{r LM Reviews year price}
+## Using Caret, LM Model Year, Price, Reviews
+set.seed(1, sample.kind = "Rounding")
+train_lm_genre <- train(`User Rating` ~ Reviews + Year+ Price  , method = "lm", data = train_set)
+y_hat_lm_genre <- predict(train_lm_genre, test_set, type ="raw")
+rmse_lm_genre <- RMSE(y_hat_lm_genre, test_set$`User Rating`)
+rmse_lm_genre
+
+```
+```{r LM Reviews, Year}
+##Using Caret, LM model  of Reviews, year
+set.seed(1, sample.kind = "Rounding")
+train_lm_genre_price <- train(`User Rating` ~ Reviews + Year  , method = "lm", data = train_set)
+y_hat_lm_genre_price <- predict(train_lm_genre_price, test_set, type ="raw")
+rmse_lm_genre_price <- RMSE(y_hat_lm_genre_price, test_set$`User Rating`)
+rmse_lm_genre_price
+```
+
+
+```{r LM Reviews}
+## using caret, LM model of Reviews only
+train_lm_genre_price_year <- train(`User Rating` ~ Reviews   , method = "lm", data = train_set)
+y_hat_lm_genre_price_year <- predict(train_lm_genre_price_year, test_set, type ="raw")
+rmse_lm_genre_price_year <- RMSE(y_hat_lm_genre_price_year, test_set$`User Rating`)
+rmse_lm_genre_price_year
+```
+
+
+
+```{r results from CARET LM}
+## results of Caret LM models
+results_lm_caret <- data.frame(Method=c("LM w/ Caret and all variables","LM w/ Caret and Reviews,Year, Price","LM w/ Caret and Reviews, Year","LM w/ Caret and Reviews"), RMSE = c(rmse_lm,rmse_lm_genre,rmse_lm_genre_price,rmse_lm_genre_price_year))
+results_lm_caret
+```
+```{r comparison table of LM}
+## comparison of simple model and caret models
+comparison_results <- data.frame(results_lm_caret, results_lm_wo_caret)
+comparison_results
+```
+As it should be the results are the same but about other types of modeling.  Can I get the RMSE to be lower than the Linear Regression.   The remainder of the models will be using Caret only.  
+
+
+```{r RANDOM FOREST}
+
+## using caret to explore other models.  
+### Randomforest
+set.seed(1, sample.kind = "Rounding")
+
+train_rf <- train(`User Rating`~ . , method = "rf", data = train_set, metric ="RMSE")
+y_hat_rf <- predict(train_rf, test_set, type = "raw")
+rmse_rf <- RMSE(y_hat_rf,test_set$`User Rating`)
+
+                
+rmse_rf
+plot(train_rf)
+
+```
+
+
+I added the metric of RMSE to the model and allowed it to pick the variables.  Authors would have been included in that and the RMSE from the Random Forest was 0.1741.
+
+
+
+
+Now to look at it using KNN.  Additional tuning was added such as cross validation 
+
+```{r KNN }
+## using caret to explore KNN 
+set.seed(1, sample.kind = "Rounding")
+control <- trainControl(method = "cv", number = 10, p = .9)
+train_knn <- train(`User Rating` ~ ., method= "knn", data = train_set, tuneGrid = data.frame(k=seq(9,71,2)), trControl = control, metric ="RMSE")
+train_knn$bestTune
+y_hat_knn <- predict(train_knn, test_set, type ="raw")
+rmse_knn <- RMSE(y_hat_knn, test_set$`User Rating`)
+rmse_knn
+ggplot(train_knn, highlight = TRUE)
+train_knn$finalModel
+   plot(train_knn)
+```
+
+   
+```{r Penalized}
+## using caret to
+train_penalized <- train(`User Rating` ~ ., method= "penalized", data= train_set, metric= "RMSE")
+y_hat_pen <- predict(train_penalized, test_set, type ="raw")
+rmse_pen <- RMSE(y_hat_pen, test_set$`User Rating`)
+rmse_pen
+
+
+```
+
+
+```{r Bayes GLM}
+set.seed(1, sample.kind ="Rounding")
+train_glm <- train(`User Rating`~., method = "bayesglm", data =train_set, metric ="RMSE")
+y_hat_glm <- predict(train_glm, test_set, type ="raw")
+rmse_glm <- RMSE(y_hat_glm, test_set$`User Rating`)
+rmse_glm
+
+```
+
+Below are the results of all the Caret Models that were run.   The models include Linear Regression, Bayes GLM, KNN, RandomForest, and Penalized.   RMSE was the chosen metric for all models.  
+
+
+
+```{r Reuslts}
+results <- data.frame(Method =c( "Linear Regresion with Caret"," Bayes GLM","KNN","RandomForest", "Penalized"), RMSE =c(rmse_lm, rmse_glm,rmse_knn,rmse_rf, rmse_pen))
+results
+
+```
+
+As you can see from the results above.  The lowest RMSE produced was from the Bayes GLM.  Each of these models all the model to pick the appropriate variables, except Linear Regression.   This project allowed me to become familiar with the various parameters of CARET.  Metrics, Tuning, etc... I also tried to learn the preProcess parameter but with less sucess.   
+
+Its easy to see that some variables are important to the overall sucess.  A well known author migh influence the number of sales which could lead to higher number of reviews.  Price also influences the number of sales.  The year and genre have some influence but it appears to a lessor extent.   These models could be used to help Amazon determine how sucessful a book might be. 
+
+Future work would be to learn how to incorporate the confusion matrix into this as well as work with Classification models.  
+
+```{r end}
+
+```
+
+
+
+
+
+
+
+
